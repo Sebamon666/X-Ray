@@ -127,14 +127,22 @@ btnSend.onclick = async ()=>{
     const j = await r.json();
 
 if (j.prediction){
+  const isNormal = (j.prediction || "").toUpperCase() === "NORMAL";
+  const badgeStyle = `
+    display:inline-block;padding:6px 10px;border-radius:10px;
+    ${isNormal ? "background:#1e8e3e;color:#fff" : "background:#d93025;color:#fff"}
+  `;
+  resBox.style.display='block';
   resBox.innerHTML = `
-    <div style="font-size:1.2rem;margin-bottom:6px">
-      <b>Predicción:</b> ${j.prediction}
+    <div style="font-size:1.2rem;margin-bottom:8px">
+      <span style="${badgeStyle}">
+        Predicción: ${j.prediction}
+      </span>
     </div>
-    <div style="color:#888">
+    <div style="color:#666">
       Confianza: ${(j.confidence*100).toFixed(1)} %
     </div>
-    <div style="font-size:.9rem;margin-top:8px">
+    <div style="font-size:.9rem;margin-top:8px;color:#888">
       Archivo: ${j.filename}
     </div>
   `;
