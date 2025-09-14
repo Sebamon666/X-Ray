@@ -125,7 +125,23 @@ btnSend.onclick = async ()=>{
   try{
     const r = await fetch('/predict', { method:'POST', body: fd });
     const j = await r.json();
-    resBox.textContent = JSON.stringify(j, null, 2);
+
+if (j.prediction){
+  resBox.innerHTML = `
+    <div style="font-size:1.2rem;margin-bottom:6px">
+      <b>Predicción:</b> ${j.prediction}
+    </div>
+    <div style="color:#888">
+      Confianza: ${(j.confidence*100).toFixed(1)} %
+    </div>
+    <div style="font-size:.9rem;margin-top:8px">
+      Archivo: ${j.filename}
+    </div>
+  `;
+}else{
+  resBox.textContent = JSON.stringify(j, null, 2);
+}
+    
   }catch(err){
     resBox.textContent = 'Error: '+err;
   }
