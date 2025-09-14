@@ -7,6 +7,20 @@ from torchvision import transforms
 from torchvision.models import resnet18, ResNet18_Weights
 from PIL import Image
 
+import csv, datetime, os
+LOG_PATH = os.path.join(os.path.dirname(__file__), "logs.csv")
+
+def append_log(filename: str, pred: str, conf: float, size_bytes: int, ua: str, ip: str):
+    newfile = not os.path.exists(LOG_PATH)
+    with open(LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if newfile:
+            w.writerow(["ts_iso", "client_ip", "user_agent", "filename", "prediction", "confidence", "size_bytes"])
+        w.writerow([
+            datetime.datetime.utcnow().isoformat(),
+            ip, ua, filename, pred, f"{conf:.6f}", size_bytes
+        ])
+
 app = Flask(__name__)
 
 # ---------- Endpoints básicos ----------
@@ -187,14 +201,19 @@ def predict():
         probs = torch.nn.functional.softmax(outputs[0], dim=0)
         conf, pred_idx = torch.max(probs, dim=0)
 
-    pred_label = class_names[pred_idx.item()]
+ pred_label = class_names[pred_idx.item()]
 
-    return jsonify({
-        "ok": True,
-        "filename": filename,
-        "prediction": pred_label,
-        "confidence": float(conf.item())
-    }), 200
+# Registrar en logs
+user_agent = request.headers.get("User-Agent", "")
+client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+append_log(filename, pred_label, float(conf.item()), len(data), user_agent, client_ip)
+
+return jsonify({
+    "ok": True,
+    "filename": filename,
+    "prediction": pred_label,
+    "confidence": float(conf.item())
+}), 200
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)
