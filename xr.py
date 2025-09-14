@@ -1,21 +1,45 @@
 from flask import Flask, jsonify, request, render_template_string
 from werkzeug.utils import secure_filename
-import io
+import io, json
+
+import torch
+from torchvision import transforms
+from torchvision.models import resnet18, ResNet18_Weights
+from PIL import Image
 
 app = Flask(__name__)
 
-# 1) Health
+# ---------- Endpoints básicos ----------
 @app.get("/health")
 def health():
     return jsonify(status="ok"), 200
 
-# 2) Home con UI (drag & drop + file input). Hace POST a /predict con fetch.
+# ---------- Carga de modelo y preparación ----------
+with open("model_meta.json", "r", encoding="utf-8") as f:
+    META = json.load(f)
+class_names = META["class_names"]
+input_size = int(META.get("input_size", 224))
+
+model = resnet18(weights=ResNet18_Weights.DEFAULT)
+num_features = model.fc.in_features
+model.fc = torch.nn.Linear(num_features, len(class_names))
+model.load_state_dict(torch.load("model_resnet18.pth", map_location="cpu"))
+model.eval()
+
+transform = transforms.Compose([
+    transforms.Resize((input_size, input_size)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         std=[0.229, 0.224, 0.225])
+])
+
+# ---------- UI ----------
 INDEX_HTML = r"""
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Proyecto 7 – API REST (Imagen)</title>
+  <title>Proyecto 7 – X-Ray</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 16px}
@@ -32,11 +56,11 @@ INDEX_HTML = r"""
 <body>
   <h1>Proyecto 7 – Subir imagen y predecir</h1>
 
-<div class="row">
+  <div class="row">
     <input id="file" type="file" accept="image/*" style="display:none" />
     <button class="ghost" id="btnPick">Elegir archivo…</button>
     <button class="primary" id="btnSend">Enviar a /predict</button>
-</div>
+  </div>
 
   <div id="dz" class="drop">
     Arrastra y suelta una imagen aquí
@@ -115,7 +139,7 @@ btnSend.onclick = async ()=>{
 def index():
     return render_template_string(INDEX_HTML)
 
-# 3) /predict — procesa la imagen y responde JSON
+# ---------- /predict ----------
 @app.post("/predict")
 def predict():
     if "file" not in request.files:
@@ -127,21 +151,26 @@ def predict():
     filename = secure_filename(f.filename)
     data = f.read()
 
-    # --------- LÓGICA DE MODELO (placeholder) ----------
-    # Aquí luego cargas tu modelo y haces la predicción real.
-    # Ejemplo dummy: tamaño del archivo y primera firma de bytes.
-    size_bytes = len(data)
-    head = list(data[:8])
-    # ---------------------------------------------------
+    try:
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+    except Exception as e:
+        return jsonify(error=f"No es una imagen válida: {e}"), 400
+
+    tensor = transform(img).unsqueeze(0)
+
+    with torch.no_grad():
+        outputs = model(tensor)
+        probs = torch.nn.functional.softmax(outputs[0], dim=0)
+        conf, pred_idx = torch.max(probs, dim=0)
+
+    pred_label = class_names[pred_idx.item()]
 
     return jsonify({
         "ok": True,
         "filename": filename,
-        "size_bytes": size_bytes,
-        "bytes_head": head,
-        "prediction": "demo-placeholder"  # <-- será reemplazado por tu modelo real
+        "prediction": pred_label,
+        "confidence": float(conf.item())
     }), 200
 
 if __name__ == "__main__":
-    # Para desarrollo local
     app.run(host="127.0.0.1", port=5000, debug=True)
