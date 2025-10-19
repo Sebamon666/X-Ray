@@ -18,11 +18,11 @@ Flujo técnico
 - Se devuelve la predicción y el nivel de confianza del modelo.
 
 4. Tecnologías utilizadas
-- PyTorch / Torchvision — entrenamiento y arquitectura ResNet-18
-- Flask — API REST y servidor web
-- Gunicorn — despliegue en Render
-- GitHub — control de versiones
-- Render — hosting de la aplicación
+- PyTorch / Torchvision:   Entrenamiento y arquitectura ResNet-18
+- Flask:                   API REST y servidor web
+- Gunicorn:                Despliegue en Render
+- GitHub:                  Control de versiones
+- Render:                  Hosting de la aplicación
 
 5.  Métricas destacadas
 - AUC	      0.999
