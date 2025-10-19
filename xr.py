@@ -34,13 +34,24 @@ class_names = META["class_names"]
 input_size = int(META.get("input_size", 224))
 
 # 🔽 Descarga automática del modelo desde Google Drive si no existe
-MODEL_URL = "https://drive.google.com/uc?id=10aeUQAL--ECMQAe_GdBXH1Jm5D45HGt8"
+MODEL_ID = "10aeUQAL--ECMQAe_GdBXH1Jm5D45HGt8"
 MODEL_PATH = "ensemble_model.pth"
+URL = f"https://drive.google.com/uc?export=download&id={MODEL_ID}"
 
 if not os.path.exists(MODEL_PATH):
-    print("Descargando modelo desde Google Drive...")
-    r = requests.get(MODEL_URL, allow_redirects=True)
-    open(MODEL_PATH, "wb").write(r.content)
+    print("Descargando modelo desde Google Drive (modo confirmado)...")
+    with requests.Session() as s:
+        response = s.get(URL, stream=True)
+        token = None
+        for k, v in response.cookies.items():
+            if k.startswith('download_warning'):
+                token = v
+        if token:
+            URL_confirm = f"{URL}&confirm={token}"
+            response = s.get(URL_confirm, stream=True)
+        with open(MODEL_PATH, "wb") as f:
+            for chunk in response.iter_content(32768):
+                f.write(chunk)
     print("✅ Modelo descargado correctamente.")
 
 # ---------- Definición del modelo ----------
