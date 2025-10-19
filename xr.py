@@ -62,7 +62,7 @@ class EnsembleResNet18(nn.Module):
 
 # Cargar pesos del ensamble
 model = EnsembleResNet18(num_classes=len(class_names))
-state = torch.load(MODEL_PATH, map_location="cpu")
+state = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
 model.load_state_dict(state, strict=True)
 model.eval()
 
