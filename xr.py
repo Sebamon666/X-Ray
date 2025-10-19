@@ -1,5 +1,5 @@
 # =====================================================
-# xr.py – API Flask con modelo Ensamble (descarga automática desde Drive)
+# xr.py – API Flask con modelo Ensamble (descarga automática desde Hugging Face)
 # =====================================================
 
 from flask import Flask, jsonify, request, render_template_string
@@ -33,24 +33,16 @@ with open("model_meta.json", "r", encoding="utf-8") as f:
 class_names = META["class_names"]
 input_size = int(META.get("input_size", 224))
 
-# 🔽 Descarga automática del modelo desde Google Drive si no existe
-MODEL_ID = "10aeUQAL--ECMQAe_GdBXH1Jm5D45HGt8"
+# 🔽 Descarga automática del modelo desde Hugging Face si no existe
+MODEL_URL = "https://huggingface.co/Sebamon/xray/resolve/main/ensemble_model.pth"
 MODEL_PATH = "ensemble_model.pth"
-URL = f"https://drive.google.com/uc?export=download&id={MODEL_ID}"
 
 if not os.path.exists(MODEL_PATH):
-    print("Descargando modelo desde Google Drive (modo confirmado)...")
-    with requests.Session() as s:
-        response = s.get(URL, stream=True)
-        token = None
-        for k, v in response.cookies.items():
-            if k.startswith('download_warning'):
-                token = v
-        if token:
-            URL_confirm = f"{URL}&confirm={token}"
-            response = s.get(URL_confirm, stream=True)
-        with open(MODEL_PATH, "wb") as f:
-            for chunk in response.iter_content(32768):
+    print("Descargando modelo desde Hugging Face...")
+    r = requests.get(MODEL_URL, stream=True)
+    with open(MODEL_PATH, "wb") as f:
+        for chunk in r.iter_content(8192):
+            if chunk:
                 f.write(chunk)
     print("✅ Modelo descargado correctamente.")
 
@@ -59,7 +51,7 @@ class EnsembleResNet18(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.models = nn.ModuleList()
-        for _ in range(3):  # estructura idéntica al ensamble original
+        for _ in range(3):
             m = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
             m.fc = nn.Linear(m.fc.in_features, num_classes)
             self.models.append(m)
@@ -71,9 +63,9 @@ class EnsembleResNet18(nn.Module):
             probs.append(p)
         return torch.stack(probs).mean(dim=0)
 
-# Cargar pesos del ensamble
-model = EnsembleResNet18(num_classes=len(class_names))
+# ---------- Cargar pesos ----------
 state = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
+model = EnsembleResNet18(num_classes=len(class_names))
 model.load_state_dict(state, strict=True)
 model.eval()
 
@@ -134,8 +126,8 @@ def predict():
         return jsonify(error=f"No es una imagen válida: {e}"), 400
     tensor = transform(img).unsqueeze(0)
     with torch.no_grad():
-        outputs = model(tensor)
-        probs = torch.softmax(outputs[0], dim=0)
+        # ⚠️ Corrección: el modelo ya devuelve probabilidades
+        probs = model(tensor)[0]
         conf, pred_idx = torch.max(probs, dim=0)
     pred_label = class_names[pred_idx.item()]
     user_agent = request.headers.get("User-Agent", "")
