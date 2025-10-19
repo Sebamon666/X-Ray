@@ -1,34 +1,31 @@
-Flujo de trabajo del proyecto
+Este proyecto implementa una API web de diagnóstico automático a partir de radiografías, utilizando redes neuronales convolucionales (CNN) entrenadas con PyTorch y desplegadas en Render.
 
-1\.	Desarrollo local (Python + Flask)
+Flujo técnico
 
-o	La aplicación se programa en Python usando Flask, que es el marco para crear la API.
+1. Entrenamiento del modelo
+- Se utilizó la arquitectura ResNet-18 preentrenada en ImageNet.
+- El modelo fue ajustado y evaluado con métricas como AUC, accuracy y F1-score.
+- La versión final alcanzó un desempeño superior al 98 % de AUC.
 
-o	En el computador se prueban los cambios antes de publicarlos.
+2. Despliegue en Render
+- El código fuente se aloja en GitHub, desde donde Render realiza los builds automáticos.
+- El modelo model_resnet18.pth se carga directamente al iniciar el servidor Flask.
+- La API se ejecuta con Gunicorn y expone una interfaz web simple para subir imágenes y obtener predicciones.
 
-2\.	Control de versiones (GitHub)
+3. Funcionamiento
+- El usuario arrastra o selecciona una radiografía (JPG/PNG).
+- La imagen se procesa y se clasifica en dos categorías: NORMAL o PNEUMONIA
+- Se devuelve la predicción y el nivel de confianza del modelo.
 
-o	El código se guarda en un repositorio de GitHub.
+4. Tecnologías utilizadas
+- PyTorch / Torchvision — entrenamiento y arquitectura ResNet-18
+- Flask — API REST y servidor web
+- Gunicorn — despliegue en Render
+- GitHub — control de versiones
+- Render — hosting de la aplicación
 
-o	Cada vez que se hace un cambio, se sube (push) al repositorio para mantener el historial y compartirlo fácilmente.
-
-3\.	Servidor de producción (Render)
-
-o	Render es la plataforma que recibe el código desde GitHub y lo convierte en un servicio accesible desde internet.
-
-o	Cada vez que subimos cambios a GitHub, Render los detecta y actualiza la aplicación automáticamente.
-
-4\.	Ejecución en producción (Gunicorn)
-
-o	Render usa Gunicorn, un servidor que permite que varias personas usen la API al mismo tiempo de manera estable y rápida.
-
-o	Gunicorn se encarga de “servir” la aplicación Flask en internet.
-
-5\.	Resultado final
-
-o	La API queda disponible en una dirección web (ejemplo: https://mi-api.onrender.com).
-
-o	Cualquier usuario o sistema puede conectarse a esa URL para consultar o enviar datos.
-
-
-
+5.  Métricas destacadas
+- AUC	      0.999
+- Accuracy	0.982
+- Recall	  0.996
+- F1 score	0.982
