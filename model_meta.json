@@ -1,0 +1,9 @@
+{
+  "arch": "ensemble_resnet18",
+  "class_names": [
+    "NORMAL",
+    "PNEUMONIA"
+  ],
+  "input_size": 224,
+  "normalization": "imagenet"
+}
