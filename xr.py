@@ -1,10 +1,10 @@
 # =====================================================
-# xr.py – API Flask con modelo Ensamble (archivo único)
+# xr.py – API Flask con modelo Ensamble (descarga automática desde Drive)
 # =====================================================
 
 from flask import Flask, jsonify, request, render_template_string
 from werkzeug.utils import secure_filename
-import io, os, json, csv, datetime
+import io, os, json, csv, datetime, requests
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
@@ -26,19 +26,29 @@ def append_log(filename: str, pred: str, conf: float, size_bytes: int, ua: str, 
             ip, ua, filename, pred, f"{conf:.6f}", size_bytes
         ])
 
-# ---------- Carga del modelo ----------
+# ---------- Carga del modelo (Ensambles) ----------
 with open("model_meta.json", "r", encoding="utf-8") as f:
     META = json.load(f)
 
 class_names = META["class_names"]
 input_size = int(META.get("input_size", 224))
 
-# Clase wrapper igual a la usada al guardar
+# 🔽 Descarga automática del modelo desde Google Drive si no existe
+MODEL_URL = "https://drive.google.com/uc?id=10aeUQAL--ECMQAe_GdBXH1Jm5D45HGt8"
+MODEL_PATH = "ensemble_model.pth"
+
+if not os.path.exists(MODEL_PATH):
+    print("Descargando modelo desde Google Drive...")
+    r = requests.get(MODEL_URL, allow_redirects=True)
+    open(MODEL_PATH, "wb").write(r.content)
+    print("✅ Modelo descargado correctamente.")
+
+# ---------- Definición del modelo ----------
 class EnsembleResNet18(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.models = nn.ModuleList()
-        for _ in range(3):  # estructura idéntica al original
+        for _ in range(3):  # estructura idéntica al ensamble original
             m = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
             m.fc = nn.Linear(m.fc.in_features, num_classes)
             self.models.append(m)
@@ -50,13 +60,13 @@ class EnsembleResNet18(nn.Module):
             probs.append(p)
         return torch.stack(probs).mean(dim=0)
 
-# Cargar el modelo ensamble completo
+# Cargar pesos del ensamble
 model = EnsembleResNet18(num_classes=len(class_names))
-state = torch.load("ensemble_model.pth", map_location="cpu")
+state = torch.load(MODEL_PATH, map_location="cpu")
 model.load_state_dict(state, strict=True)
 model.eval()
 
-# Transformaciones
+# ---------- Transformaciones ----------
 transform = transforms.Compose([
     transforms.Resize((input_size, input_size)),
     transforms.ToTensor(),
@@ -64,7 +74,7 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-# ---------- UI ----------
+# ---------- Interfaz HTML ----------
 INDEX_HTML = """<!doctype html><html lang="es"><head>
 <meta charset="utf-8" /><title>Detector de Neumonía – Ensamble</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
